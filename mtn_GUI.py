@@ -1249,3 +1249,57 @@ class Slider(ControlBase):
             ControlBase.OnFocus = None
             
         return esta_encima
+
+
+class TextList(ControlBase):
+    '''Control que muestra una lista y donde se puede seleccionar un elemento de la lista'''
+    All = []
+
+    def __init__(self, rect):
+        super(TextList, self).__init__(rect)
+        
+
+        TextList.All.append(self)
+
+
+class Option(ControlBase):
+    All = []
+
+    def __init__(self, rect):
+        super(Option, self).__init__(rect)
+        
+
+        Option.All.append(self)
+
+
+
+class Grid(ControlBase):
+    All = []
+
+    def __init__(self, rect):
+        super(Grid, self).__init__(rect)
+        
+
+        Grid.All.append(self)
+
+
+class Tab(ControlBase):
+    All = []
+
+    def __init__(self, rect):
+        super(Tab, self).__init__(rect)
+        
+
+        Tab.All.append(self)
+
+
+class Animation(ControlBase):
+
+    All = []
+
+    def __init__(self, rect):
+        super(Animation, self).__init__(rect)
+        
+
+        Animation.All.append(self)
+
