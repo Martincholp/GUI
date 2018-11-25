@@ -380,3 +380,173 @@ class Label(ControlBase):
 
         super(Label, self).updateGraphics()
         self.text = self._text  # Solo para ctualizar el bitmap de texto 
+
+
+
+class Image(ControlBase):
+    '''Contenedor para mostrar una imagen'''
+
+    All = []
+    def __init__(self, rect, imagen=None):
+        super(Image, self).__init__(rect)
+        self.imagen = imagen
+        self.border = True
+
+        Image.All.append(self)
+
+
+    def updateGraphics(self):
+        '''Actualiza como se mostrara nuestro control segun el modo grafico establecido'''
+
+
+        # Limpio las superficies del control
+        self.img_normal.fill(self.color_background)  
+        self.img_hover.fill(self.color_background)  
+        self.img_down.fill(self.color_background)  
+        self.img_disable.fill(self.color_background)  
+
+        if self.imagen == None:
+            self.imagen = pygame.Surface(self.get_size(), pygame.HWSURFACE|pygame.SRCALPHA)
+            self.imagen.fill(Color.Transparent)
+
+
+        if self.border:
+            pygame.draw.rect(self.imagen, self.color_foreground, (0,0,self.get_width(),self.get_height()), self.linesize_border)
+
+        if self.get_GraphicMode() == 0:
+            # Como solo es para mostrar una imagen todas las superficies del control tendran la imagen en cuestion
+              # Normal
+            self.img_normal.blit(self.imagen, (0,0))
+              # Hover
+            self.img_hover.blit(self.imagen, (0,0))
+              # Down
+            self.img_down.blit(self.imagen, (0,0))
+              # Disable
+            self.img_disable.blit(self.imagen, (0,0))
+            for l in range(0, self.get_width(), 10):
+                pygame.draw.rect(self.img_disable, self.color_disable, (0,0,self.get_width(),self.get_height()), self.linesize_foreground)
+                pygame.draw.line(self.img_disable, self.color_disable, (l, self.get_height()),(l+10, 0), self.linesize_foreground )
+
+        else:
+            print 'El modo grafico ' + self.get_GraphicMode() + ' no existe'
+
+
+class Button(Label):
+    '''Boton para interaccion con el usuario'''
+    All = []
+    
+    def __init__(self, rect, command, texto=""):
+        super(Button, self).__init__(rect,texto)
+        self.command = command
+        self.enableFocus = True
+
+        #  Colores
+        self.color_background = Color.Transparent
+        self.color_foreground = Color.DarkSeaGreen
+        self.color_foreground_h = Color.LawnGreen
+        self.color_normal = Color.Gainsboro
+        self.color_hover = Color.White
+        self.color_down = Color.Silver
+        self.color_disable = Color.Gray
+        
+
+        Button.All.append(self)
+
+    def click(self, boton=None):
+
+        es_click = super(Button, self).click(boton)
+        if es_click:
+            self.command(boton)
+        
+        return es_click
+
+
+class CheckBox(ControlBase):
+    '''Caja de verificacion'''
+    All = []
+
+    def __init__(self, rect, value=False):
+        super(CheckBox, self).__init__(rect)
+        
+        self._value = value
+
+        CheckBox.All.append(self)
+
+
+    def updateGraphics(self):
+        '''Actualiza como se mostrara nuestro control segun el modo grafico establecido'''
+
+        # Dibujo los bords con la llamada a la funcion de la clase base
+        super(CheckBox, self).updateGraphics()
+
+        # Dibujo el check
+          # Puntos
+        self._p1 = (self.get_width()*0.2, self.get_height()*0.5)
+        self._p2 = (self.get_width()*0.4, self.get_height()*0.8)
+        self._p3 = (self.get_width()*0.8, self.get_height()*0.25)
+
+          # Imagen normal
+        pygame.draw.line(self.img_foreground, self.color_foreground, self._p1, self._p2, self.linesize_foreground/2)
+        pygame.draw.line(self.img_foreground, self.color_foreground, self._p2, self._p3, self.linesize_foreground/2)
+
+          # Imagen hover
+        pygame.draw.line(self.img_foreground_h, self.color_foreground_h, self._p1, self._p2, self.linesize_foreground/2)
+        pygame.draw.line(self.img_foreground_h, self.color_foreground_h, self._p2, self._p3, self.linesize_foreground/2)
+    
+        self.value = self._value # Esto es solo para que dibuje la imagen disable
+
+    @property
+    def value(self):
+        '''Propiedad para establecer el estado del check'''
+        return self._value
+
+    @value.setter
+    def value(self, val):
+        self._value = val
+
+        # Como no hay un foreground_disable actualizo el img_disable segun el valor del check
+        self.img_disable.fill(self.color_background)
+
+        for l in range(0, self.get_width(), 10):
+            pygame.draw.rect(self.img_disable, self.color_disable, (0,0,self.get_width(),self.get_height()),self.linesize_foreground)
+            pygame.draw.line(self.img_disable, self.color_disable, (l, self.get_height()),(l+10, 0) )
+
+        # Imagen disable
+        if val:
+            pygame.draw.line(self.img_disable, self.color_disable, self._p1, self._p2, self.linesize_foreground/2)
+            pygame.draw.line(self.img_disable, self.color_disable, self._p2, self._p3, self.linesize_foreground/2)
+
+
+    def render(self, target, b=None):
+        '''Dibujar nuestro control en la superficie indicada.'''
+        
+        if self.visible and self.is_context():
+            if not self.enable:
+                target.blit(self.img_disable, self.get_pos())
+            else:
+                
+                if self.is_hover():
+                    if self.value:
+                        target.blit(self.img_hover, self.get_pos())
+                        target.blit(self.img_foreground_h, self.get_pos())
+                    else:
+                        target.blit(self.img_hover, self.get_pos())
+                else:
+                    if self.value:
+                        target.blit(self.img_normal, self.get_pos())
+                        target.blit(self.img_foreground, self.get_pos())
+                    else:
+                        target.blit(self.img_normal, self.get_pos())
+                
+                if self.is_Focus:
+                    pygame.draw.rect(target, Color.Red, (self.left, self.top ,self.get_width(),self.get_height()), self.linesize_focus)
+
+
+    def click(self, boton=None):
+        '''Cambia el valor del control'''
+        es_click = super(CheckBox, self).click(boton)
+
+        if es_click:
+            self.value = not self._value 
+
+        return es_click
