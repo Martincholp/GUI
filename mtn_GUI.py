@@ -980,3 +980,272 @@ class RollList(ControlBase):
 
             elif esta_encima == 3:
                 self.prev()
+
+
+class Slider(ControlBase):
+    '''Barra deslizable'''
+    All=[]
+
+    def __init__(self, rect):
+        super(Slider,self).__init__(rect)
+    
+    
+        self._max = 100
+        self._min = 0
+        self._value = 50
+        self._orientation = O_HORIZONTAL
+        self.border = False   # Sin bordes
+
+
+        # Cursor
+        self._cursorThickness = 5
+        self._cursorSize = (self._cursorThickness,rect[3])
+        self._cursorPos = (0,0)
+        self.img_cursorNormal = pygame.Surface(self._cursorSize, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_cursorHover = pygame.Surface(self._cursorSize, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_cursorDown = pygame.Surface(self._cursorSize, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_cursorDisable = pygame.Surface(self._cursorSize, pygame.HWSURFACE|pygame.SRCALPHA)
+        self._arrastrar = False # variable auxiliar para el arrastrado del cursor
+
+        # Linea central
+        self._thicknessLineSize = 4  #  Grosor de la linea central del control
+        self._centralLineSize = pygame.Rect(0, (self.height-self._thicknessLineSize)/2, self.width, self._thicknessLineSize)  #  Rectangulo de la linea central
+
+        self._setCursorPos()  # Actualiza la posicion del cursor
+
+        Slider.All.append(self)
+
+    @property
+    def cursorThickness(self):
+        return self._cursorThickness
+    
+    @cursorThickness.setter
+    def cursorThickness(self, v):
+        self._cursorThickness = v
+
+        if self._orientation == O_HORIZONTAL:
+            self.cursorSize = (self._cursorThickness, self.height) 
+        elif self._orientation == O_VERTICAL:
+            self.cursorSize = (self.width, self._cursorThickness) 
+
+
+    @property
+    def cursorSize(self):
+        '''Tupla con el tamaño del cursor.'''
+        return self._cursorSize
+    
+    @cursorSize.setter
+    def cursorSize(self, val):
+        self._cursorSize = val
+        self.img_cursorNormal = pygame.Surface(val, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_cursorHover = pygame.Surface(val, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_cursorDown = pygame.Surface(val, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_cursorDisable = pygame.Surface(val, pygame.HWSURFACE|pygame.SRCALPHA)
+        self._setCursorPos()
+
+    
+    @property
+    def centralLineSize(self):
+        '''Ancho de la línea central del control'''
+
+        return self._thicknessLineSize
+
+
+    @centralLineSize.setter
+    def centralLineSize(self, val):
+        self._thicknessLineSize = val
+
+        if self.orientation == O_HORIZONTAL:
+            self._centralLineSize = pygame.Rect(0, (self.height-val)/2, self.width, val)
+        
+        elif self.orientation == O_VERTICAL:
+            self._centralLineSize = pygame.Rect((self.width-val)/2, 0, val ,self.height)
+        
+
+
+    @property
+    def orientation(self):
+        return self._orientation
+
+    @orientation.setter
+    def orientation(self, v):
+        self._orientation = v
+        self.cursorThickness = self._cursorThickness  # Solo actualiza la relacion de aspecto del cursor
+        self.updateGraphics()    
+
+    @property
+    def cursorPos(self):
+        '''Posicion del cursor. Solo lectura'''
+        return self._cursorPos
+    
+    def _setCursorPos(self):
+        '''Setea la posicion del cursor en funcion del valor max, valor min y el valor actual. Es de uso privado'''
+
+        if self.orientation == O_HORIZONTAL:
+            self._cursorPos = ((self.width-self._cursorThickness)*(self._value-self._min)/(self._max-self._min)+self.left, self.top +(self.height-self._cursorSize[1])/2 )
+        
+        elif self.orientation == O_VERTICAL:
+            self._cursorPos = (self.left +(self.width-self._cursorSize[0])/2, (-1*(self.height-self._cursorThickness)*(self._value-self._min)/(self._max-self._min)+self.top+self.height-self._cursorThickness )) #-self.height)
+
+
+    @property
+    def maxValue(self):
+        '''Valor máximo'''
+        return self._max
+
+    @maxValue.setter
+    def maxValue(self, v):
+        self._max = v
+
+        if (self._max-self._min):  # Esto es para evitar division por cero
+            self.value = self._value  # Recalcula la posicion actual, por si quedo fuera del nuevo limiteself.value = self._value  # Recalcula la posicion actual, por si quedo fuera del nuevo limite
+
+    @property
+    def minValue(self):
+        '''Valor mínimo'''
+        return self._min
+
+    @minValue.setter
+    def minValue(self, v):
+        self._min = v
+
+        if (self._max-self._min):  # Esto es para evitar division por cero
+            self.value = self._value  # Recalcula la posicion actual, por si quedo fuera del nuevo limiteself.value = self._value  # Recalcula la posicion actual, por si quedo fuera del nuevo limite
+
+    @property
+    def value(self):
+        '''Valor actual'''
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        if v < self._min:
+            self._value = self._min
+        elif v > self._max:
+            self._value = self._max
+        else:            
+            self._value = v
+    
+        self._setCursorPos()
+        
+
+    def render(self, target, b=None):
+        '''Dibuja el control en la superficie indicada en target.'''
+
+        r = super(Slider, self).render(target, b)
+
+        #  Las siguientes instrucciones solo dibujan el cursor en la posicion correspondiente,
+        #  el rectangulo del control ya fue dibujado por el render del ControlBase
+
+        #  Si no hay presionado ningun boton detiene la operacion de arrastrar si se ha iniciado
+        btns = pygame.mouse.get_pressed()
+        if not (btns[0] or btns[1] or btns[2]):  
+            self._arrastrar = False
+
+        if r :
+            h = self.is_hover()
+
+            if not self.enable:
+                target.blit(self.img_cursorDisable, self.cursorPos)
+            else:
+                if h: 
+                    if self.is_down(b):
+
+                        if self._arrastrar:
+                            if self.orientation == O_HORIZONTAL:
+                                self.value = ((self.maxValue-self.minValue+1)*(pygame.mouse.get_pos()[0]-self.left)/self.width)+self.minValue
+
+                            elif self.orientation == O_VERTICAL:
+                                self.value = self.minValue + (pygame.mouse.get_pos()[1]-self.top-self.height)*(self.maxValue-self.minValue)/(-1*self.height)
+
+                        target.blit(self.img_cursorDown, self.cursorPos)
+                    else:
+                        target.blit(self.img_cursorHover, self.cursorPos)
+                else:
+                    target.blit(self.img_cursorNormal, self.cursorPos)
+       
+
+
+
+
+    def updateGraphics(self):
+        '''Actualiza como se mostrará el control según el modo gráfico establecido. Debe ser llamado cada vez que la imagen del control cambie'''
+
+
+        if self.get_GraphicMode() == 0:
+
+            # Actualizo la linea central y el tamaño del cursor
+            self.centralLineSize = self._thicknessLineSize
+            self.cursorSize = self._cursorSize
+
+            # Actualizo la posicion del cursor
+            self._setCursorPos()
+
+            # Linea central
+            pygame.draw.rect(self.img_normal, self.color_normal, self._centralLineSize, 1) #(0, (self.height-self.centralLineSize)/2, self.width, self.centralLineSize), 1)
+            pygame.draw.rect(self.img_hover, self.color_hover, self._centralLineSize, 1) #(0, (self.height-self.centralLineSize)/2, self.width, self.centralLineSize), 1)
+            pygame.draw.rect(self.img_down, self.color_down, self._centralLineSize, 1) #(0, (self.height-self.centralLineSize)/2, self.width, self.centralLineSize), 1)
+            # Cursor
+            pygame.draw.rect(self.img_cursorNormal, self.color_normal, (0,0,self.cursorSize[0], self.cursorSize[1]), 0)
+            pygame.draw.rect(self.img_cursorHover , self.color_hover , (0,0,self.cursorSize[0], self.cursorSize[1]), 0)
+            pygame.draw.rect(self.img_cursorDown, self.color_down, (0,0,self.cursorSize[0], self.cursorSize[1]), 0)
+    
+        
+
+
+    def is_hover(self):
+        '''Devuelve un entero mayor que cero cuando el cursor del mouse está sobre el control.
+        Tabla de valores:
+            0 --> No está sobre el control
+            1 --> Está sobre el cursor del control
+            2 --> Está sobre la línea central del control
+            3 --> Está sobre el control (pero fuera del cursor y la línea central)'''
+        
+        pos = pygame.mouse.get_pos()  #  Posicion del mouse
+        res = 0  #  Valor por defecto
+        
+        if self.visible and self.is_context():
+
+                #  Sobre el control
+            if self.get_rect().collidepoint(pos):
+                res = 3  
+
+                #  Sobre la linea
+            if self._centralLineSize.move(self.left,self.top).collidepoint(pos):
+                res = 2
+
+                #  Sobre el cursor
+            if self.img_cursorNormal.get_rect(topleft = self.cursorPos).collidepoint(pos):
+                res = 1
+
+            return res
+
+
+    def click(self, boton=None):
+        '''Establece el valor del control según donde se hizo click. Si es sobre la línea central
+        posiciona el cursor allí y establece el valor. Si es sobre el cursor inicia una operación
+        de arrastrar para posicionarlo y establecer el valor'''
+
+
+        esta_encima = self.is_hover()
+        pos = pygame.mouse.get_pos()
+                   
+        if esta_encima:
+            if self.enable:
+                if self.enableFocus:
+                    ControlBase.OnFocus = self
+
+            if esta_encima == 1:  # sobre el cursor
+                self._arrastrar = True
+
+            elif esta_encima == 2:  # Sobre la linea
+                if self.orientation == O_HORIZONTAL:
+                    self.value = ((self.maxValue-self.minValue+1)*(pos[0]-self.left)/self.width)+self.minValue
+                
+                elif self.orientation == O_VERTICAL:
+                    self.value = self.minValue + (pygame.mouse.get_pos()[1]-self.top-self.height)*(self.maxValue-self.minValue)/(-1*self.height)
+
+        else:
+            ControlBase.OnFocus = None
+            
+        return esta_encima
