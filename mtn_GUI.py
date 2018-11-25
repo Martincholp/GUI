@@ -550,3 +550,433 @@ class CheckBox(ControlBase):
             self.value = not self._value 
 
         return es_click
+
+class Textbox(Label): 
+    '''Caja de texto'''
+    All = []
+    __tiempo = pygame.time.get_ticks() # Para usar en el parpadeo del cursor
+    __parpadeo = True # Para usar en el parpadeo del cursor
+
+    def __init__(self, rect, texto=""):
+
+        super(Textbox, self).__init__(rect, texto)
+
+        #  Vuelvo a la configuracion de colores del ControlBase y no del label
+        self.color_background = Color.Transparent
+        self.color_foreground = Color.DarkSeaGreen
+        self.color_foreground_h = Color.LawnGreen
+        self.color_normal = Color.Gainsboro
+        self.color_hover = Color.White
+        self.color_down = Color.Silver
+        self.color_disable = Color.Gray
+        self.color_cursor = self.color_foreground
+
+        self.enableFocus = True
+        self.cursorVisible = True
+        self.cursorFreq = 300
+        self.linesize_border = 1
+        self._cursorPos = len(texto)
+        self.pos_text = (5,0)
+
+        pygame.key.set_repeat(400,100)
+
+    @property
+    def cursorPos(self):
+        '''Define la posicion del cursor'''
+        return self._cursorPos
+
+    @cursorPos.setter
+    def cursorPos(self, pos):
+        self._cursorPos = pos
+    
+
+    def movCursorIzq(self):
+        '''Mueve el cursos un caracter hacia la izquierda'''
+        self._cursorPos -= 1
+        if self._cursorPos < 0:
+            self._cursorPos = 0
+
+        return self.cursorPos
+
+
+    def movCursorDer(self):
+        '''Mueve el cursos un caracter hacia la derecha'''
+        self._cursorPos += 1
+        if self._cursorPos > len(self.text):
+            self._cursorPos = len(self.text)
+
+        return self.cursorPos
+
+    def keydown(self, k=None):
+
+        #esKeyDown = super(Textbox,self).keydown(k) 
+        if self.enable and self.is_Focus:
+            esKeyDown = True
+        else:
+            esKeyDown = False
+
+        if esKeyDown:
+            if k.key == pygame.K_LEFT:
+                #nuevo = self.text
+                self.movCursorIzq()
+
+            elif k.key == pygame.K_RIGHT:
+                #nuevo = self.text
+                self.movCursorDer()
+
+
+            elif k.key == pygame.K_BACKSPACE:
+                self.text = self.text[:self.cursorPos][:-1] + self.text[self.cursorPos:]
+                self.movCursorIzq()
+
+            elif k.key == pygame.K_DELETE:
+                self.text = self.text[:self.cursorPos] + self.text[self.cursorPos+1:]
+
+            #elif k.key == pygame.K_RETURN:  # Para que no haga nada
+            #    nuevo = self.text
+            
+            else:
+                self.text = self.text[:self.cursorPos] + k.unicode + self.text[self.cursorPos:]
+                self.movCursorDer()
+            
+
+        return esKeyDown
+
+    def render(self, target, b=None):
+        '''Redefinicion de la funcion render del Label para incluir el cursor con parpadeo'''
+
+
+        dibCursor = super(Textbox, self).render(target, b)
+        esta_activado = self.enable
+        esta_enfoco = self.is_Focus
+
+        tiemporTranscurrido = pygame.time.get_ticks() - Textbox.__tiempo
+        if tiemporTranscurrido>self.cursorFreq:
+            Textbox.__tiempo = pygame.time.get_ticks()
+            Textbox.__parpadeo = not Textbox.__parpadeo
+
+        if  dibCursor and esta_activado and esta_enfoco and Textbox.__parpadeo :
+            anchoTexto, altoTexto = self.font.size(self.text[0:self.cursorPos])
+            posXcur = self.left + self.pos_text[0] + anchoTexto
+            if posXcur < self.left + self.img_normal.get_width():
+                pygame.draw.line(target, self.color_foreground, (posXcur , self.top + self.pos_text[1]), (posXcur , self.top + self.pos_text[1]+ altoTexto) , 2)
+
+        return dibCursor
+
+    def click(self, c=None):  
+        # c es el evento de MOUSEBUTTONDOWN 
+        # c.pos -> posicion del click 
+        # c.button -> boton del click (1 es el principal, 2 es secundario, 3 es central, 4 es rueda arriba, 5 es rueda abajo)
+         
+        #super(Textbox, self).click(c, screen)
+
+        hover = super(Textbox, self).click(c) 
+        
+        if hover:
+            posClick = c.pos
+
+            if posClick[0] > self.left+self.pos_text[0]+self.font.size(self.text)[0]:
+                self.cursorPos = len(self.text)
+                return hover
+            
+            if posClick[0] < self.left+self.pos_text[0]:
+                self.cursorPos = 0
+                return hover
+
+            else:
+                tamizqant = 0
+
+                for i in range(0,len(self.text)+1):
+                    izq = self.text[0:i]
+                    tamizq = self.font.size(izq)[0]
+                    if posClick[0] > self.left + self.pos_text[0] + tamizqant+ (tamizq-tamizqant)/2:
+                        tamizqant = tamizq
+                    else:    
+                        self.cursorPos = len(izq) -1
+                        break    
+
+        return hover
+
+
+class RollList(ControlBase):
+    '''Lista rotable'''
+    All = []
+
+    def __init__(self, rect, lista):
+
+        super(RollList,self).__init__(rect)
+
+        # Atributos propios del control
+        self._lista = lista  #  Cada elemento puede contener 2-upla, donde elem[0] sera el nombre a mostrar y elem[1] el elemento a devolver 
+        self._indice = 0
+        self.loop = True # Si True, al final de la lista vuelve a empezar. Si False, se queda en el ultimo elemento
+        
+        # Configuracion del texto
+        self.pos_text = (0,0)
+        self.font = Font.Default
+        self.align = A_CENTER
+
+        # Posicion y tamaño de los botones
+        self._boton_size = (30, rect[3]/2) # tamaño del boton por defecto. Para cambiarlo actuar sobre los rect
+        self.rect_botonNext = pygame.Rect(rect[0]+rect[2]-self._boton_size[0], 0, self._boton_size[0], self._boton_size[1])
+        self.rect_botonPrev = pygame.Rect(rect[0]+rect[2]-self._boton_size[0], self._boton_size[1], self._boton_size[0], self._boton_size[1])
+
+        # Color de los botones
+        self.color_backgroundBoton = Color.DimGray
+
+        # Imagenes de este control
+        # self.img_normal   Es la superficie normal (sin hover ni down). Heredada de ControlBase
+        self.img_normalPrev = pygame.Surface(self.rect_botonPrev.size, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_hoverPrev = pygame.Surface(self.rect_botonPrev.size, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_downPrev = pygame.Surface(self.rect_botonPrev.size, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_normalNext = pygame.Surface(self.rect_botonNext.size, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_hoverNext = pygame.Surface(self.rect_botonNext.size, pygame.HWSURFACE|pygame.SRCALPHA)
+        self.img_downNext = pygame.Surface(self.rect_botonNext.size, pygame.HWSURFACE|pygame.SRCALPHA)
+        # self.img_disable   Es la superficie deshabilitada. Heredada de ControlBase
+
+
+        RollList.All.append(self)
+
+    def is_hover(self):
+        '''Devuelve un entero mayor que cero cuando el cursor del mouse está sobre el control.
+        Tabla de valores:
+            0 --> No está sobre el control
+            1 --> Está sobre el área de texto
+            2 --> Está sobre el botón siguiente
+            3 --> Está sobre el botón anterior'''
+
+
+        if self.visible and self.is_context():
+            pos = pygame.mouse.get_pos()  #  Posicion del mouse
+            res = 0  #  Valor por defecto
+
+            self.rect_botonNext.topright = self.get_rect().topright
+            self.rect_botonPrev.bottomright = self.get_rect().bottomright
+            if self.get_rect().collidepoint(pos):
+                res = 1
+            if self.rect_botonNext.collidepoint(pos):
+                res = 2
+            if self.rect_botonPrev.collidepoint(pos):
+                res = 3
+
+            return res
+
+    @property
+    def text(self):
+        '''Devuelve el texto que esta seleccionado en la lista. Solo lectura.'''
+
+        return self._lista[self._indice]
+            
+
+
+    def updateGraphics(self):
+        '''Actualiza como se mostrara nuestro control segun el modo grafico establecido'''
+
+        # Limpio las superficies del control
+        self.img_normal.fill(self.color_background)  
+        self.img_hover.fill(self.color_background)  
+        self.img_down.fill(self.color_background)  
+        self.img_disable.fill(self.color_background)  
+
+
+
+        if self.get_GraphicMode() == 0:
+
+            # boton previo
+             # Estado normal
+            self.img_normalPrev.fill(self.color_backgroundBoton)  
+            pygame.draw.rect(self.img_normalPrev, self.color_normal, ((0,0),self.rect_botonPrev.size,), self.linesize_foreground)
+            pygame.draw.line(self.img_normalPrev, self.color_normal, (0,0), (self._boton_size[0]/2,self._boton_size[1]), self.linesize_foreground)
+            pygame.draw.line(self.img_normalPrev, self.color_normal, (self._boton_size[0]/2,self._boton_size[1]), (self._boton_size[0],0), self.linesize_foreground)
+           
+              # Estado hover
+            self.img_hoverPrev.fill(self.color_backgroundBoton)
+            pygame.draw.rect(self.img_hoverPrev, self.color_hover, ((0,0),self.rect_botonPrev.size), self.linesize_foreground)
+            pygame.draw.line(self.img_hoverPrev, self.color_hover, (0,0), (self._boton_size[0]/2,self._boton_size[1]), self.linesize_foreground)
+            pygame.draw.line(self.img_hoverPrev, self.color_hover, (self._boton_size[0]/2,self._boton_size[1]), (self._boton_size[0],0), self.linesize_foreground)
+        
+              # Estado down
+            self.img_downPrev.fill(self.color_backgroundBoton)
+            pygame.draw.rect(self.img_downPrev, self.color_down, ((0,0),self.rect_botonPrev.size), self.linesize_foreground)
+            pygame.draw.line(self.img_downPrev, self.color_down, (0,0), (self._boton_size[0]/2,self._boton_size[1]), self.linesize_foreground)
+            pygame.draw.line(self.img_downPrev, self.color_down, (self._boton_size[0]/2,self._boton_size[1]), (self._boton_size[0],0), self.linesize_foreground)
+        
+            # boton siguiente
+             # Estado normal
+            self.img_normalNext.fill(self.color_backgroundBoton)
+            pygame.draw.rect(self.img_normalNext, self.color_normal, ((0,0),self.rect_botonNext.size), self.linesize_foreground)
+            pygame.draw.line(self.img_normalNext, self.color_normal, (0,self._boton_size[1]), (self._boton_size[0]/2,0), self.linesize_foreground)
+            pygame.draw.line(self.img_normalNext, self.color_normal, (self._boton_size[0]/2,0), (self._boton_size[0],self._boton_size[1]), self.linesize_foreground)
+           
+              # Estado hover
+            self.img_hoverNext.fill(self.color_backgroundBoton)
+            pygame.draw.rect(self.img_hoverNext, self.color_hover, ((0,0),self.rect_botonNext.size), self.linesize_foreground)
+            pygame.draw.line(self.img_hoverNext, self.color_hover, (0,self._boton_size[1]), (self._boton_size[0]/2,0), self.linesize_foreground)
+            pygame.draw.line(self.img_hoverNext, self.color_hover, (self._boton_size[0]/2,0), (self._boton_size[0],self._boton_size[1]), self.linesize_foreground)
+        
+              # Estado down
+            self.img_downNext.fill(self.color_backgroundBoton)
+            pygame.draw.rect(self.img_downNext, self.color_down, ((0,0),self.rect_botonNext.size), self.linesize_foreground)
+            pygame.draw.line(self.img_downNext, self.color_down, (0,self._boton_size[1]), (self._boton_size[0]/2,0), self.linesize_foreground)
+            pygame.draw.line(self.img_downNext, self.color_down, (self._boton_size[0]/2,0), (self._boton_size[0],self._boton_size[1]), self.linesize_foreground)
+        
+            # Estado disable. Solo agrego los botones con el color disable a la imagen
+              # boton siguiente
+            pygame.draw.rect(self.img_disable, self.color_disable, pygame.Rect((self.width-self._boton_size[0], 0),self._boton_size), self.linesize_foreground)
+            pygame.draw.line(self.img_disable, self.color_disable, (self.width-self._boton_size[0],self._boton_size[1]), (self.width-self._boton_size[0]/2,0), self.linesize_foreground)
+            pygame.draw.line(self.img_disable, self.color_disable, (self.width-self._boton_size[0]/2,0), (self.width,self._boton_size[1]), self.linesize_foreground)
+
+              # boton prev
+            pygame.draw.rect(self.img_disable, self.color_disable, pygame.Rect((self.width-self._boton_size[0], self._boton_size[1]),self._boton_size), self.linesize_foreground)
+            pygame.draw.line(self.img_disable, self.color_disable, (self.width-self._boton_size[0],self._boton_size[1]), (self.width-self._boton_size[0]/2,self._boton_size[1]*2), self.linesize_foreground)
+            pygame.draw.line(self.img_disable, self.color_disable, (self.width-self._boton_size[0]/2,self._boton_size[1]*2), (self.width,self._boton_size[1]), self.linesize_foreground)
+        
+
+            # Dibuja el borde del control
+            if self.border:
+                  # Normal
+                pygame.draw.rect(self.img_normal, self.color_normal, (0,0,self.get_width(),self.get_height()), self.linesize_border)
+                  # Hover
+                pygame.draw.rect(self.img_hover, self.color_hover, (0,0,self.get_width(),self.get_height()),self.linesize_border)
+                  # Down
+                pygame.draw.rect(self.img_down, self.color_down, (0,0,self.get_width(),self.get_height()),self.linesize_border)
+                  # Disable
+                pygame.draw.rect(self.img_disable, self.color_disable, (0,0,self.get_width(),self.get_height()),self.linesize_border)
+
+            for l in range(0, self.get_width(), 10):
+                pygame.draw.line(self.img_disable, self.color_disable, (l, self.get_height()),(l+10, 0) )
+
+        else:
+            print 'El modo grafico ' + self.get_GraphicMode() + ' no existe'
+
+       
+
+
+    def render(self, target, b=None):
+        '''Dibuja nuestro control en la superficie indicada.'''
+         
+        esta_visible = self.visible
+        esta_encontexto = self.is_context()
+        esta_activado = self.enable
+        esta_encima = self.is_hover()
+        esta_enfoco = self.is_Focus
+
+
+        # Construye el bitmap de texto correspondiente y lo coloca en el foreground
+        bitmap = self.font.render(self.text, True, self.color_foreground)
+        bitmap_h = self.font.render(self.text, True, self.color_foreground_h)
+        bitmap_disable = self.font.render(self.text, True, self.color_disable)
+        bitmapWidth, bitmapHeight = self.font.size(self.text) 
+
+        # Calculo la posicion del texto
+            # Valor del usuario
+        if self.align == None:
+            posX, posY = self.pos_text
+        
+            # Posicion X
+        if self.align == A_LEFT or self.align == A_TOPLEFT or self.align == A_BOTTOMLEFT:
+            posX = 0
+        
+        if self.align == A_CENTER or self.align == A_TOP or self.align == A_BOTTOM:
+            posX = self.get_width()/2 - bitmapWidth/2
+
+        if self.align == A_RIGHT or self.align == A_BOTTOMRIGHT or self.align == A_TOPRIGHT:
+            posX = self.get_width() - bitmapWidth - self._boton_size[0]
+
+            # Posicion Y
+        if self.align == A_TOPLEFT or self.align == A_TOP or self.align == A_TOPRIGHT:
+            posY = 0
+        
+        if self.align == A_CENTER or self.align == A_LEFT or self.align == A_RIGHT:
+            posY = self.get_height()/2 - bitmapHeight/2
+
+        if self.align == A_BOTTOMLEFT or self.align == A_BOTTOMRIGHT or self.align == A_BOTTOM:
+            posY = self.get_height() - bitmapHeight
+
+        # Dibujo el texto sobre la img_foreground (normal y hover)
+        self.img_foreground.fill(Color.Transparent)
+        self.img_foreground.blit(bitmap, (posX, posY))
+        self.img_foreground_h.fill(Color.Transparent)
+        self.img_foreground_h.blit(bitmap_h, (posX, posY))
+        self.img_disable.blit(bitmap_disable, (posX, posY))
+
+
+        if esta_visible and esta_encontexto:
+            if not esta_activado:
+                target.blit(self.img_disable, self.get_pos())
+                #target.blit(self.img_foreground, self.get_pos())
+            else:
+
+                if esta_encima == 0:
+                    target.blit(self.img_normal, self.get_pos())
+                    target.blit(self.img_normalNext, self.rect_botonNext)
+                    target.blit(self.img_normalPrev, self.rect_botonPrev)
+                    target.blit(self.img_foreground, self.get_pos())
+
+                if esta_encima == 1:  # Area de texto. No me importa si esta down
+                    target.blit(self.img_hover, self.get_pos())
+                    target.blit(self.img_normalNext, self.rect_botonNext)
+                    target.blit(self.img_normalPrev, self.rect_botonPrev)
+                    target.blit(self.img_foreground_h, self.get_pos())
+
+                if esta_encima == 2:  # boton siguiente
+                    if self.is_down(b):
+                        target.blit(self.img_hover, self.get_pos())
+                        target.blit(self.img_downNext, self.rect_botonNext)
+                        target.blit(self.img_normalPrev, self.rect_botonPrev)
+                    else:
+                        target.blit(self.img_hover, self.get_pos())
+                        target.blit(self.img_hoverNext, self.rect_botonNext)
+                        target.blit(self.img_normalPrev, self.rect_botonPrev)
+                    
+                    target.blit(self.img_foreground, self.get_pos())
+                    
+                if esta_encima == 3:  # boton anterior
+                    if self.is_down(b):
+                        target.blit(self.img_hover, self.get_pos())
+                        target.blit(self.img_normalNext, self.rect_botonNext)
+                        target.blit(self.img_downPrev, self.rect_botonPrev)
+                    else:
+                        target.blit(self.img_hover, self.get_pos())
+                        target.blit(self.img_normalNext, self.rect_botonNext)
+                        target.blit(self.img_hoverPrev, self.rect_botonPrev)
+                                    
+                    target.blit(self.img_foreground, self.get_pos())
+
+            if esta_enfoco:
+                pygame.draw.rect(target, self.color_focus, self.get_rect(), self.linesize_focus)
+
+            return True
+        else:
+            return False
+
+    def next(self):
+        '''Aumenta en 1 el elemento en la lista.'''
+        self._indice += 1
+        if self._indice > len(self._lista)-1:
+            if self.loop:
+                self._indice = 0
+            else:
+                self._indice = len(self._lista)-1
+
+    def prev(self):
+        '''Disminuye en 1 el elemento en la lista.'''
+        self._indice -= 1
+        if self._indice < 0:
+            if self.loop:
+                self._indice = len(self._lista)-1
+            else:
+                self._indice = 0
+
+
+    def click(self, button=None):
+        '''Método a llamar cuando se hace click. Devuelve 1 si está encima del control, de lo contrario devuelve 0'''
+
+        esta_encima = super(RollList,self).click(button)
+
+        if self.enable:
+            if esta_encima == 2:
+                self.next()
+
+            elif esta_encima == 3:
+                self.prev()
