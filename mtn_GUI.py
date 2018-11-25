@@ -297,3 +297,86 @@ class ControlBase(pygame.Surface):
     def __repr__(self):
         # Devuelve un str con el tipo de control y el rectangulo que ocupa
         return (str(type(self)).split('.')[1])[:-2] + str(self.get_rect())[5:-1]
+
+class Label(ControlBase):
+    '''Control para mostrar un texto sin interacción con el usuario'''
+    All = []
+    def __init__(self, rect, texto):
+        super(Label, self).__init__(rect)
+        self._text = texto
+        self.enableFocus = False
+
+        # Configuracion del texto
+        self.pos_text = (0,0)
+        self.font = Font.Default
+        self.align = A_CENTER
+
+        #  Colores
+        self.color_background = Color.Transparent
+        self.color_foreground = Color.DarkSeaGreen
+        self.color_disable = Color.Gray
+            #  Como es un label se supone que no interactua con el usuario, por eso
+            #  los colores normal, hover y down son igual al background. Ademas el
+            #  color del foreground y del foreground_h tambien son iguales
+        self.color_normal = self.color_background
+        self.color_hover = self.color_background
+        self.color_down = self.color_background
+        self.color_foreground_h = self.color_foreground
+
+
+
+        Label.All.append(self)
+
+    @property
+    def text(self):
+        '''Texto del Label'''
+        return self._text
+
+    @text.setter
+    def text(self, texto):
+        
+        self._text = texto
+
+        # Construye el bitmap de texto correspondiente y lo coloca en el foreground
+        bitmap = self.font.render(texto, True, self.color_foreground)
+        bitmap_h = self.font.render(texto, True, self.color_foreground_h)
+        bitmap_disable = self.font.render(texto, True, self.color_disable)
+        bitmapWidth, bitmapHeight = self.font.size(texto) 
+
+        # Calculo la posicion
+            # Valor del usuario
+        if self.align == None:
+            posX, posY = self.pos_text
+        
+            # Posicion X
+        if self.align == A_LEFT or self.align == A_TOPLEFT or self.align == A_BOTTOMLEFT:
+            posX = 0
+        
+        if self.align == A_CENTER or self.align == A_TOP or self.align == A_BOTTOM:
+            posX = self.get_width()/2 - bitmapWidth/2
+
+        if self.align == A_RIGHT or self.align == A_BOTTOMRIGHT or self.align == A_TOPRIGHT:
+            posX = self.get_width() - bitmapWidth 
+
+            # Posicion Y
+        if self.align == A_TOPLEFT or self.align == A_TOP or self.align == A_TOPRIGHT:
+            posY = 0
+        
+        if self.align == A_CENTER or self.align == A_LEFT or self.align == A_RIGHT:
+            posY = self.get_height()/2 - bitmapHeight/2
+
+        if self.align == A_BOTTOMLEFT or self.align == A_BOTTOMRIGHT or self.align == A_BOTTOM:
+            posY = self.get_height() - bitmapHeight
+
+        # Dibujo el texto sobre la img_foreground (normal y hover)
+        self.img_foreground.fill(Color.Transparent)
+        self.img_foreground.blit(bitmap, (posX, posY))
+        self.img_foreground_h.fill(Color.Transparent)
+        self.img_foreground_h.blit(bitmap_h, (posX, posY))
+        self.img_disable.blit(bitmap_disable, (posX, posY))
+
+    def updateGraphics(self):
+        '''Actualiza como se mostrara nuestro control segun el modo grafico establecido'''
+
+        super(Label, self).updateGraphics()
+        self.text = self._text  # Solo para ctualizar el bitmap de texto 
