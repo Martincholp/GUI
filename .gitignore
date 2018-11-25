@@ -1,0 +1,6 @@
+# Archivos sublime
+*.sublime-workspace
+*.sublime-project
+
+# Archivos de codigo optimizado de python
+*.pyc
