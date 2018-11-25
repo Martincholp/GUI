@@ -1303,3 +1303,27 @@ class Animation(ControlBase):
 
         Animation.All.append(self)
 
+
+class InfoVersion(object):
+    """Informacion sobre la version"""
+    def __init__(self):
+        self._version = 0
+        self._subversion = 0
+        self._revision = 1
+        self._estado = "a" 
+
+    def get_version(self):
+        return self._version
+
+    def get_subversion(self):
+        return self._subversion
+
+    def get_revision(self):
+        return self._revision
+
+    def get_estado(self):
+        return self._estado
+
+    def __str__(self):
+        return str(self.get_version()) + "." + str(self.get_subversion()) + "." + str(self.get_revision()) + self.get_estado()
+
